@@ -48,7 +48,9 @@
   .next-time { color:var(--accent); font-size:clamp(4.2rem,19vw,6.2rem); line-height:1.05; letter-spacing:-.065em; font-weight:850; margin:8px 0 0; font-variant-numeric:tabular-nums; }
   .elapsed-label { color:var(--muted); font-size:.76rem; font-weight:750; text-transform:uppercase; letter-spacing:.08em; margin-top:23px; }
   .clock { font-variant-numeric:tabular-nums; font-size:1.8rem; line-height:1.1; letter-spacing:-.04em; font-weight:750; margin:5px 0 0; }
-  .next-detail { margin-top:8px; font-size:15px; color:var(--muted); font-weight:500; min-height:20px; }
+  .next-detail { margin-top:8px; font-size:17px; color:#000; font-weight:750; min-height:20px; }
+  .total-detail { color:var(--muted); font-size:.76rem; font-weight:750; text-transform:uppercase; letter-spacing:.08em; margin-top:12px; }
+  .total-value { display:block; color:#000; font-variant-numeric:tabular-nums; font-size:1.8rem; line-height:1.1; letter-spacing:-.04em; font-weight:750; text-transform:none; margin-top:5px; }
   .progress-track { height:7px; border-radius:99px; background:#e9e8e0; overflow:hidden; margin:22px 2px 0; }
   .progress { height:100%; width:0; border-radius:99px; background:var(--accent); transition:width .15s linear; }
   .controls { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:17px; }
@@ -77,16 +79,39 @@
   .drawer-header h2 { margin:0; font-size:1.25rem; }
   .close-button { border:0; background:#e9e8df; border-radius:12px; width:42px; height:42px; font-size:1.5rem; cursor:pointer; }
   .drawer-card { background:var(--card); border:1px solid var(--line); border-radius:18px; padding:17px; margin-bottom:14px; }
+  .field input[type="number"] {
+    width:100%; box-sizing:border-box; border:1px solid #c9cbbf; border-radius:12px;
+    padding:12px; background:#fff; color:var(--ink); font:inherit; font-size:1.05rem; font-weight:750;
+  }
+  .field input[type="number"]:focus { outline:3px solid #38664f25; border-color:var(--accent); }
+  .input-hint { color:var(--muted); font-size:.78rem; margin-top:5px; }
+  .timeline-value { position:absolute!important; width:1px!important; height:1px!important; overflow:hidden!important; clip:rect(0,0,0,0)!important; white-space:nowrap!important; }
+  .timeline-choice { position:relative; display:flex; align-items:stretch; justify-content:space-between; gap:4px; margin-top:12px; padding-top:2px; }
+  .timeline-line { position:absolute; top:8px; left:12%; right:12%; height:2px; background:var(--line); z-index:0; }
+  .timeline-option {
+    position:relative; z-index:1; flex:1; min-width:0; border:0; background:transparent; color:var(--muted);
+    padding:0 2px; display:flex; flex-direction:column; align-items:center; gap:8px;
+    font:inherit; font-size:.76rem; line-height:1.2; cursor:pointer; text-align:center;
+  }
+  .timeline-option::before { content:""; width:12px; height:12px; border-radius:50%; border:2px solid var(--line); background:var(--card); box-sizing:border-box; }
+  .timeline-option.active { color:var(--accent); font-weight:800; }
+  .timeline-option.active::before { width:16px; height:16px; margin-top:-2px; border:4px solid var(--accent); background:var(--card); }
+  .timeline-option:focus-visible { outline:2px solid var(--accent); outline-offset:3px; border-radius:8px; }
+  .profile-timeline .timeline-option { font-size:.69rem; }
   .field { margin-bottom:17px; }
   .field:last-child { margin-bottom:0; }
   label { display:block; font-weight:750; font-size:.9rem; margin-bottom:7px; }
   select { width:100%; border:1px solid #c9cbbf; border-radius:12px; padding:12px; color:var(--ink); background:white; }
   select:focus { outline:3px solid #38664f25; border-color:var(--accent); }
   .hint { color:var(--muted); font-size:.78rem; margin-top:6px; }
-  .recipe-summary { display:grid; grid-template-columns:1fr 1fr; gap:9px; margin-bottom:15px; }
-  .metric { background:var(--accent-light); padding:12px; border-radius:12px; }
+  .water-coffee-row { display:grid; grid-template-columns:minmax(0, 1fr) minmax(0, 1fr); gap:10px; align-items:end; margin-bottom:17px; }
+  .water-coffee-row .field { min-width:0; margin-bottom:0; }
+  .metric { background:var(--accent-light); padding:12px; border-radius:12px; min-width:0; box-sizing:border-box; }
   .metric span { display:block; color:var(--muted); font-size:.76rem; }
   .metric strong { display:block; font-size:1.2rem; margin-top:2px; }
+  .coffee-metric { min-height:67px; display:flex; flex-direction:column; justify-content:center; margin-bottom:0; }
+  .coffee-grind { display:block; color:var(--muted); font-size:.72rem; margin-top:3px; }
+  .pours-heading { margin:0 0 12px; font-size:.9rem; font-weight:800; color:var(--ink); }
   .drawer-pours { display:grid; gap:8px; }
   .recipe-pour { display:grid; grid-template-columns:28px 1fr auto; align-items:center; gap:9px; padding:9px 0; border-bottom:1px solid var(--line); }
   .recipe-pour:last-child { border-bottom:0; }
@@ -122,6 +147,7 @@
     <div class="progress-track"><div class="progress" id="progress"></div></div>
     <div class="elapsed-label">Tiempo transcurrido</div>
     <div class="clock" id="clock" role="timer" aria-live="off">00:00</div>
+    <div class="total-detail" id="totalDetail">Total vertido: <span class="total-value">0 g</span></div>
   </section>
 
   <div class="controls">
@@ -148,39 +174,47 @@
     <button class="close-button" id="closeDrawer" aria-label="Cerrar menú">×</button>
   </div>
   <div class="drawer-card">
-    <div class="field">
-      <label for="cups">Cantidad de tazas</label>
-      <select id="cups">
-        <option value="1">1 taza · 250 g de agua</option>
-        <option value="2" selected>2 tazas · 500 g de agua</option>
-      </select>
+    <div class="water-coffee-row">
+      <div class="field">
+        <label for="cups">Cantidad de agua (g)</label>
+        <input id="cups" type="number" inputmode="numeric" min="1" max="1000" step="1" value="500" required>
+      </div>
+      <div class="metric coffee-metric">
+        <span>Café molido</span>
+        <strong id="coffeeAmount">29,4 g</strong>
+        <small class="coffee-grind">Molienda gruesa</small>
+      </div>
     </div>
     <div class="field">
-      <label for="ratio">Proporción café : agua</label>
-      <select id="ratio">
-        <option value="15">1:15</option>
-        <option value="16">1:16</option>
-        <option value="17" selected>1:17</option>
-        <option value="18">1:18</option>
+      <label>Proporción café : agua</label>
+      <select id="ratio" class="timeline-value" aria-hidden="true" tabindex="-1">
+        <option value="15">1:15</option><option value="16">1:16</option>
+        <option value="17" selected>1:17</option><option value="18">1:18</option>
       </select>
+      <div class="timeline-choice" data-select="ratio" role="radiogroup" aria-label="Proporción café : agua">
+        <span class="timeline-line" aria-hidden="true"></span>
+        <button type="button" class="timeline-option" data-value="15" role="radio" aria-checked="false">1:15</button>
+        <button type="button" class="timeline-option" data-value="16" role="radio" aria-checked="false">1:16</button>
+        <button type="button" class="timeline-option active" data-value="17" role="radio" aria-checked="true">1:17</button>
+        <button type="button" class="timeline-option" data-value="18" role="radio" aria-checked="false">1:18</button>
+      </div>
     </div>
     <div class="field">
-      <label for="profile">Perfil de sabor</label>
-      <select id="profile">
-        <option value="balanced">Equilibrado</option>
-        <option value="sweet" selected>Más dulzor</option>
+      <label>Perfil de sabor</label>
+      <select id="profile" class="timeline-value" aria-hidden="true" tabindex="-1">
+        <option value="sweet" selected>Más dulzor</option><option value="balanced">Equilibrado</option>
         <option value="bright">Más acidez y brillo</option>
       </select>
+      <div class="timeline-choice profile-timeline" data-select="profile" role="radiogroup" aria-label="Perfil de sabor">
+        <span class="timeline-line" aria-hidden="true"></span>
+        <button type="button" class="timeline-option active" data-value="sweet" role="radio" aria-checked="true">Más dulzor</button>
+        <button type="button" class="timeline-option" data-value="balanced" role="radio" aria-checked="false">Equilibrado</button>
+        <button type="button" class="timeline-option" data-value="bright" role="radio" aria-checked="false">Más acidez y brillo</button>
+      </div>
     </div>
-    <div class="hint">Molienda gruesa · 5 vertidos</div>
   </div>
   <div class="drawer-card">
-    <div class="recipe-summary">
-      <div class="metric"><span>Café molido</span><strong id="coffeeAmount">14,7 g</strong></div>
-      <div class="metric"><span>Agua total</span><strong id="waterTotal">250 g</strong></div>
-      <div class="metric"><span>Proporción</span><strong id="ratioLabel">1:17</strong></div>
-      <div class="metric"><span>Perfil</span><strong id="profileLabel">Dulzor</strong></div>
-    </div>
+    <h3 class="pours-heading">Vertidos</h3>
     <div class="drawer-pours" id="drawerPours"></div>
   </div>
 </aside>
@@ -206,7 +240,7 @@
   function buildRecipe() {
     const cups = Number($('cups').value);
     const ratio = Number($('ratio').value);
-    const total = cups * 250;
+    const total = Math.min(1000, Math.max(1, Math.round(Number($('cups').value) || 500)));
     const coffee = round(total / ratio);
     const profile = $('profile').value;
     const firstTwoTotal = total * 0.4;
@@ -235,9 +269,6 @@
   function drawRecipe() {
     recipe = buildRecipe();
     $('coffeeAmount').textContent = `${fmt(recipe.coffee)} g`;
-    $('waterTotal').textContent = `${fmt(recipe.total,0)} g`;
-    $('ratioLabel').textContent = `1:${recipe.ratio}`;
-    $('profileLabel').textContent = profileNames[recipe.profile];
     const drawerPours = $('drawerPours');
     drawerPours.innerHTML = '';
     recipe.pours.forEach((p, i) => {
@@ -327,9 +358,11 @@
     const currentPourIndex = Math.min(4, Math.floor(Math.max(0, elapsed) / 45));
     const currentPour = recipe.pours[currentPourIndex];
     if (elapsed >= 180) {
-      $('nextDetail').textContent = `Añade ${fmt(recipe.pours[4].add, 0)} g de agua · Total vertido: ${fmt(recipe.total, 0)} g`;
+      $('nextDetail').textContent = `Añade ${fmt(recipe.pours[4].add, 0)} g de agua`;
+      $('totalDetail').innerHTML = `Total vertido: <span class="total-value">${fmt(recipe.total, 0)} g</span>`;
     } else {
-      $('nextDetail').textContent = `Añade ${fmt(currentPour.add, 0)} g de agua · Total vertido: ${fmt(currentPour.cumulative, 0)} g`;
+      $('nextDetail').textContent = `Añade ${fmt(currentPour.add, 0)} g de agua`;
+      $('totalDetail').innerHTML = `Total vertido: <span class="total-value">${fmt(currentPour.cumulative, 0)} g</span>`;
     }
     $('progress').style.width = `${Math.min(100, elapsed/180*100)}%`;
   }
@@ -429,7 +462,10 @@
     try {
       const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
       if (!saved) return;
-      if (['1','2'].includes(String(saved.cups))) $('cups').value = String(saved.cups);
+      if (saved.cups !== undefined && saved.cups !== null) {
+        const oldWater = String(saved.cups) === '1' ? 250 : String(saved.cups) === '2' ? 500 : Number(saved.cups);
+        if (Number.isFinite(oldWater)) $('cups').value = String(Math.min(1000, Math.max(1, Math.round(oldWater))));
+      }
       if (['15','16','17','18'].includes(String(saved.ratio))) $('ratio').value = String(saved.ratio);
       if (['balanced','sweet','bright'].includes(saved.profile)) $('profile').value = saved.profile;
     } catch (e) { /* Ignora preferencias guardadas inválidas. */ }
@@ -444,6 +480,10 @@
     } catch (e) { /* La receta sigue funcionando si el navegador bloquea localStorage. */ }
   }
   function settingsChanged() {
+    if ($('cups').value !== '') {
+      const water = Math.min(1000, Math.max(1, Math.round(Number($('cups').value))));
+      $('cups').value = String(water);
+    }
     saveSettings();
     resetTimer();
     drawRecipe();
@@ -463,6 +503,25 @@
     $('openDrawer').setAttribute('aria-expanded','false');
     $('openDrawer').focus();
   }
+  document.querySelectorAll('.timeline-choice').forEach(group => {
+    const select = $(group.dataset.select);
+    const syncTimeline = () => {
+      group.querySelectorAll('.timeline-option').forEach(button => {
+        const selected = button.dataset.value === select.value;
+        button.classList.toggle('active', selected);
+        button.setAttribute('aria-checked', selected ? 'true' : 'false');
+      });
+    };
+    group.querySelectorAll('.timeline-option').forEach(button => {
+      button.addEventListener('click', () => {
+        select.value = button.dataset.value;
+        syncTimeline();
+        settingsChanged();
+      });
+    });
+    syncTimeline();
+  });
+  $('cups').addEventListener('change', settingsChanged);
   $('enableSound').addEventListener('click', enableSound);
   $('startPause').addEventListener('click', startPause);
   $('resetTimer').addEventListener('click', resetTimer);
