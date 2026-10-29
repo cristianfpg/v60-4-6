@@ -531,6 +531,15 @@
   ['cups','ratio','profile'].forEach(id => $(id).addEventListener('change', settingsChanged));
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('drawer').classList.contains('open')) closeDrawer(); });
   loadSettings();
+  // Sincroniza el estado visual de los selectores con las preferencias cargadas.
+  document.querySelectorAll('.timeline-choice').forEach(group => {
+    const select = $(group.dataset.select);
+    group.querySelectorAll('.timeline-option').forEach(button => {
+      const selected = button.dataset.value === select.value;
+      button.classList.toggle('active', selected);
+      button.setAttribute('aria-checked', selected ? 'true' : 'false');
+    });
+  });
   drawRecipe();
 })();
 </script>
