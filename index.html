@@ -1,0 +1,440 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f5f2ec">
+<title>V60 · Cronómetro 4:6</title>
+<style>
+  :root {
+    --bg:#f5f2ec; --card:#fffdf9; --ink:#282923; --muted:#6b6d63;
+    --accent:#38664f; --accent-light:#e4eee6; --line:#deded4; --gold:#c58b43;
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  * { box-sizing:border-box; }
+  html, body { margin:0; min-height:100%; }
+  body {
+    background:var(--bg); color:var(--ink);
+    font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    line-height:1.45; -webkit-font-smoothing:antialiased;
+  }
+  button, select { font:inherit; }
+  button { -webkit-tap-highlight-color:transparent; }
+  .app {
+    min-height:100svh; width:100%; max-width:540px; margin:0 auto;
+    padding:calc(14px + env(safe-area-inset-top, 0px)) 18px calc(24px + var(--safe-bottom));
+    display:flex; flex-direction:column;
+  }
+  .topbar { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+  .brand { font-size:.76rem; letter-spacing:.13em; text-transform:uppercase; font-weight:850; color:var(--accent); }
+  .menu-button {
+    border:1px solid var(--line); background:var(--card); color:var(--ink);
+    width:46px; height:46px; border-radius:15px; display:grid; place-items:center;
+    cursor:pointer; box-shadow:0 3px 12px #29292308;
+  }
+  .menu-button svg { width:23px; height:23px; }
+  .timer-card {
+    background:var(--card); border:1px solid var(--line); border-radius:28px;
+    padding:clamp(22px,6vw,32px) 18px 22px; margin-top:18px;
+    box-shadow:0 12px 36px #2929230a; text-align:center;
+  }
+  .status-pill {
+    display:inline-flex; align-items:center; gap:8px; padding:7px 12px;
+    border-radius:999px; background:var(--accent-light); color:var(--accent);
+    font-size:.78rem; font-weight:800; letter-spacing:.01em;
+  }
+  .status-dot { width:7px; height:7px; border-radius:50%; background:currentColor; }
+  .next-label { color:var(--muted); font-size:.82rem; font-weight:800; text-transform:uppercase; letter-spacing:.09em; margin-top:25px; }
+  .next-time { color:var(--accent); font-size:clamp(4.2rem,19vw,6.2rem); line-height:1.05; letter-spacing:-.065em; font-weight:850; margin:8px 0 0; font-variant-numeric:tabular-nums; }
+  .elapsed-label { color:var(--muted); font-size:.76rem; font-weight:750; text-transform:uppercase; letter-spacing:.08em; margin-top:23px; }
+  .clock { font-variant-numeric:tabular-nums; font-size:1.8rem; line-height:1.1; letter-spacing:-.04em; font-weight:750; margin:5px 0 0; }
+  .next-detail { margin-top:8px; font-size:15px; color:var(--muted); font-weight:500; min-height:20px; }
+  .progress-track { height:7px; border-radius:99px; background:#e9e8e0; overflow:hidden; margin:22px 2px 0; }
+  .progress { height:100%; width:0; border-radius:99px; background:var(--accent); transition:width .15s linear; }
+  .controls { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:17px; }
+  .control {
+    min-height:60px; border-radius:18px; border:0; cursor:pointer; font-weight:800;
+    display:flex; align-items:center; justify-content:center; gap:9px; font-size:1rem;
+  }
+  .control svg { width:20px; height:20px; }
+  .control.primary { color:white; background:var(--accent); box-shadow:0 7px 16px #38664f26; }
+  .control.secondary { color:var(--ink); background:#e9e8df; }
+  .control:disabled { opacity:.45; cursor:not-allowed; }
+  .footer-note { text-align:center; color:var(--muted); font-size:.75rem; margin:16px 12px 0; }
+  /* Side drawer */
+  .scrim { position:fixed; inset:0; background:#16181270; z-index:10; opacity:0; pointer-events:none; transition:opacity .22s ease; }
+  .scrim.open { opacity:1; pointer-events:auto; }
+  .drawer {
+    position:fixed; z-index:11; top:0; bottom:0; right:0; width:min(88vw,390px);
+    background:var(--bg); padding:calc(18px + env(safe-area-inset-top, 0px)) 18px calc(24px + var(--safe-bottom));
+    overflow-y:auto; transform:translateX(102%); transition:transform .24s ease;
+    box-shadow:-12px 0 40px #00000018;
+  }
+  .drawer.open { transform:translateX(0); }
+  .drawer-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:22px; }
+  .drawer-header h2 { margin:0; font-size:1.25rem; }
+  .close-button { border:0; background:#e9e8df; border-radius:12px; width:42px; height:42px; font-size:1.5rem; cursor:pointer; }
+  .drawer-card { background:var(--card); border:1px solid var(--line); border-radius:18px; padding:17px; margin-bottom:14px; }
+  .field { margin-bottom:17px; }
+  .field:last-child { margin-bottom:0; }
+  label { display:block; font-weight:750; font-size:.9rem; margin-bottom:7px; }
+  select { width:100%; border:1px solid #c9cbbf; border-radius:12px; padding:12px; color:var(--ink); background:white; }
+  select:focus { outline:3px solid #38664f25; border-color:var(--accent); }
+  .hint { color:var(--muted); font-size:.78rem; margin-top:6px; }
+  .recipe-summary { display:grid; grid-template-columns:1fr 1fr; gap:9px; margin-bottom:15px; }
+  .metric { background:var(--accent-light); padding:12px; border-radius:12px; }
+  .metric span { display:block; color:var(--muted); font-size:.76rem; }
+  .metric strong { display:block; font-size:1.2rem; margin-top:2px; }
+  .drawer-pours { display:grid; gap:8px; }
+  .recipe-pour { display:grid; grid-template-columns:28px 1fr auto; align-items:center; gap:9px; padding:9px 0; border-bottom:1px solid var(--line); }
+  .recipe-pour:last-child { border-bottom:0; }
+  .recipe-num { width:27px; height:27px; border-radius:50%; display:grid; place-items:center; background:var(--accent-light); color:var(--accent); font-size:.8rem; font-weight:850; }
+  .recipe-time { font-weight:850; color:var(--accent); font-size:.88rem; }
+  .recipe-add { color:var(--muted); font-size:.77rem; margin-top:2px; }
+  .recipe-total { font-weight:850; font-size:.9rem; white-space:nowrap; }
+  @media (min-width:600px) {
+    .app { padding-top:24px; }
+    .timer-card { margin-top:20px; }
+  }
+  @media (max-height:740px) and (max-width:600px) {
+    .timer-card { margin-top:10px; padding-top:19px; }
+    .clock { margin:18px 0 15px; }
+  }
+  @media (prefers-reduced-motion:reduce) { *,*::before,*::after { transition:none!important; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <div class="brand">V60 · Método 4:6</div>
+    <button class="menu-button" id="openDrawer" aria-label="Abrir receta y opciones" aria-controls="drawer" aria-expanded="false">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+  </div>
+
+  <section class="timer-card" aria-label="Cronómetro de preparación">
+    <div class="status-pill" id="statusPill"><span class="status-dot"></span><span id="statusText">Listo para comenzar</span></div>
+    <div class="next-detail" id="nextDetail">Añade el agua del primer vertido</div>
+    <div class="next-label" id="nextLabel">Primer vertido</div>
+    <div class="next-time" id="nextTime">AHORA</div>
+    <div class="progress-track"><div class="progress" id="progress"></div></div>
+    <div class="elapsed-label">Tiempo transcurrido</div>
+    <div class="clock" id="clock" role="timer" aria-live="off">00:00</div>
+  </section>
+
+  <div class="controls">
+    <button class="control primary" id="startPause">
+      <svg id="startIcon" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+      <span id="startText">Iniciar</span>
+    </button>
+    <button class="control secondary" id="resetTimer" disabled>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 2.64-6.36L3 8"/><path d="M3 3v5h5"/></svg>
+      <span>Reiniciar</span>
+    </button>
+  </div>
+
+</div>
+
+<div class="scrim" id="scrim"></div>
+<aside class="drawer" id="drawer" aria-label="Opciones y receta" aria-hidden="true">
+  <div class="drawer-header">
+    <h2>Receta y opciones</h2>
+    <button class="close-button" id="closeDrawer" aria-label="Cerrar menú">×</button>
+  </div>
+  <div class="drawer-card">
+    <div class="field">
+      <label for="cups">Cantidad de tazas</label>
+      <select id="cups">
+        <option value="1">1 taza · 250 g de agua</option>
+        <option value="2" selected>2 tazas · 500 g de agua</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="ratio">Proporción café : agua</label>
+      <select id="ratio">
+        <option value="15">1:15</option>
+        <option value="16">1:16</option>
+        <option value="17" selected>1:17</option>
+        <option value="18">1:18</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="profile">Perfil de sabor</label>
+      <select id="profile">
+        <option value="balanced">Equilibrado</option>
+        <option value="sweet" selected>Más dulzor</option>
+        <option value="bright">Más acidez y brillo</option>
+      </select>
+    </div>
+    <div class="hint">Molienda gruesa · 5 vertidos</div>
+  </div>
+  <div class="drawer-card">
+    <div class="recipe-summary">
+      <div class="metric"><span>Café molido</span><strong id="coffeeAmount">14,7 g</strong></div>
+      <div class="metric"><span>Agua total</span><strong id="waterTotal">250 g</strong></div>
+      <div class="metric"><span>Proporción</span><strong id="ratioLabel">1:17</strong></div>
+      <div class="metric"><span>Perfil</span><strong id="profileLabel">Dulzor</strong></div>
+    </div>
+    <div class="drawer-pours" id="drawerPours"></div>
+  </div>
+</aside>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const fmt = (n, digits=1) => n.toLocaleString('es-CO', { maximumFractionDigits: digits });
+  const round = n => Math.round(n * 10) / 10;
+  const profileNames = { balanced:'Equilibrado', sweet:'Dulzor', bright:'Brillo' };
+  const times = [0,45,90,135,180];
+  let recipe = [];
+  let running = false;
+  let waiting = false;
+  let waitUntil = 0;
+  let waitTimeout = null;
+  let elapsedBeforeStart = 0;
+  let startedAt = 0;
+  let rafId = null;
+  let nextPourIndex = 0;
+  let audioCtx = null;
+
+  function buildRecipe() {
+    const cups = Number($('cups').value);
+    const ratio = Number($('ratio').value);
+    const total = cups * 250;
+    const coffee = round(total / ratio);
+    const profile = $('profile').value;
+    const firstTwoTotal = total * 0.4;
+    const firstShare = profile === 'bright' ? 0.6 : profile === 'sweet' ? 0.4 : 0.5;
+    const first = round(firstTwoTotal * firstShare);
+    const second = round(firstTwoTotal - first);
+    const finalTotal = total - first - second;
+    const third = round(finalTotal / 3);
+    const pours = [
+      {name:'1.er vertido', add:first, time:0},
+      {name:'2.º vertido', add:second, time:45},
+      {name:'3.er vertido', add:third, time:90},
+      {name:'4.º vertido', add:third, time:135},
+      {name:'5.º vertido', add:round(total-first-second-third*2), time:180}
+    ];
+    let cumulative = 0;
+    pours.forEach(p => { cumulative = round(cumulative + p.add); p.cumulative = cumulative; });
+    return {cups, ratio, total, coffee, profile, pours};
+  }
+
+  function timeString(seconds) {
+    const s = Math.max(0, Math.floor(seconds));
+    return `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
+  }
+
+  function drawRecipe() {
+    recipe = buildRecipe();
+    $('coffeeAmount').textContent = `${fmt(recipe.coffee)} g`;
+    $('waterTotal').textContent = `${fmt(recipe.total,0)} g`;
+    $('ratioLabel').textContent = `1:${recipe.ratio}`;
+    $('profileLabel').textContent = profileNames[recipe.profile];
+    const drawerPours = $('drawerPours');
+    drawerPours.innerHTML = '';
+    recipe.pours.forEach((p, i) => {
+      const t = timeString(p.time);
+      const d = document.createElement('div');
+      d.className = 'recipe-pour';
+      d.innerHTML = `<div class="recipe-num">${i+1}</div><div><div class="recipe-time">${t}</div><div class="recipe-add">Añadir ${fmt(p.add)} g</div></div><div class="recipe-total">${fmt(p.cumulative)} g</div>`;
+      drawerPours.appendChild(d);
+    });
+    updateDisplay();
+  }
+
+  function reproducirPitido(frecuencia = 600, duracion = 1) {
+    try {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextClass) return;
+      if (!audioCtx) audioCtx = new AudioContextClass();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      const oscillator = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(frecuencia, audioCtx.currentTime);
+      gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duracion);
+      oscillator.connect(gain);
+      gain.connect(audioCtx.destination);
+      oscillator.start();
+      oscillator.stop(audioCtx.currentTime + duracion);
+      oscillator.onended = () => { oscillator.disconnect(); gain.disconnect(); };
+    } catch (e) { /* El cronómetro sigue funcionando aunque el sonido esté bloqueado. */ }
+  }
+
+  function setStatus(text) { $('statusText').textContent = text; }
+  function updateDisplay() {
+    const elapsed = running ? elapsedBeforeStart + (performance.now() - startedAt)/1000 : elapsedBeforeStart;
+    $('clock').textContent = timeString(elapsed);
+    if (waiting) {
+      const secondsLeft = Math.max(0, Math.ceil((waitUntil - performance.now()) / 1000));
+      $('nextLabel').textContent = 'Prepárate';
+      $('nextTime').textContent = `00:0${secondsLeft}`;
+      $('nextDetail').textContent = 'El cronómetro comienza en breve';
+      $('progress').style.width = `${Math.min(100, elapsed/180*100)}%`;
+      return;
+    }
+    const next = recipe.pours[nextPourIndex];
+    if (next) {
+      $('nextLabel').textContent = nextPourIndex === 0 ? 'Primer vertido' : `Vertido ${nextPourIndex+1} en`;
+      $('nextTime').textContent = nextPourIndex === 0 && elapsed === 0 ? 'AHORA' : timeString(Math.max(0,next.time-elapsed));
+    } else {
+      $('nextLabel').textContent = 'Vertidos completados';
+      $('nextTime').textContent = '¡Listo!';
+    }
+
+    // Indica el vertido que corresponde al tramo actual y su acumulado objetivo.
+    const currentPourIndex = Math.min(4, Math.floor(Math.max(0, elapsed) / 45));
+    const currentPour = recipe.pours[currentPourIndex];
+    if (elapsed >= 180) {
+      $('nextDetail').textContent = `Añade ${fmt(recipe.pours[4].add, 0)} g de agua · Total vertido: ${fmt(recipe.total, 0)} g`;
+    } else {
+      $('nextDetail').textContent = `Añade ${fmt(currentPour.add, 0)} g de agua · Total vertido: ${fmt(currentPour.cumulative, 0)} g`;
+    }
+    $('progress').style.width = `${Math.min(100, elapsed/180*100)}%`;
+  }
+
+  function tick() {
+    if (!running) return;
+    const elapsed = elapsedBeforeStart + (performance.now()-startedAt)/1000;
+    while (nextPourIndex < recipe.pours.length && elapsed >= recipe.pours[nextPourIndex].time) {
+      // Aviso al llegar a cada marca, incluido el primer vertido al iniciar.
+      if (nextPourIndex > 0 || elapsedBeforeStart === 0) reproducirPitido(600, 1);
+      nextPourIndex++;
+      if (nextPourIndex === 1) setStatus('¡Primer vertido!');
+      else if (nextPourIndex <= 5) setStatus(`¡Vertido ${nextPourIndex}!`);
+    }
+    if (elapsed >= 180 && nextPourIndex >= recipe.pours.length) {
+      running = false;
+      elapsedBeforeStart = 180;
+      $('startText').textContent = 'Terminado';
+      $('startIcon').innerHTML = '<path d="M7 7h10v10H7z"/>';
+      $('startPause').disabled = true;
+      $('resetTimer').disabled = false;
+      setStatus('Preparación completada');
+      updateDisplay();
+      return;
+    }
+    updateDisplay();
+    rafId = requestAnimationFrame(tick);
+  }
+
+  function startPause() {
+    if (running) {
+      elapsedBeforeStart += (performance.now()-startedAt)/1000;
+      running = false;
+      cancelAnimationFrame(rafId);
+      $('startText').textContent = 'Continuar';
+      $('startIcon').innerHTML = '<path d="M8 5v14l11-7z"/>';
+      $('resetTimer').disabled = false;
+      setStatus('En pausa');
+      updateDisplay();
+      return;
+    }
+    if (waiting) return;
+    if (nextPourIndex >= recipe.pours.length || elapsedBeforeStart >= 180) resetTimer();
+
+    if (elapsedBeforeStart === 0) {
+      nextPourIndex = 0;
+      if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+    }
+
+    // Cuenta regresiva previa de 3 s, excluida del tiempo de preparación.
+    waiting = true;
+    waitUntil = performance.now() + 3000;
+    $('startText').textContent = 'Prepárate…';
+    $('startIcon').innerHTML = '<path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4"/>';
+    $('resetTimer').disabled = false;
+    setStatus('Prepárate…');
+
+    const updateWait = () => {
+      if (!waiting) return;
+      updateDisplay();
+      if (performance.now() < waitUntil) {
+        rafId = requestAnimationFrame(updateWait);
+        return;
+      }
+      waiting = false;
+      waitTimeout = null;
+      startedAt = performance.now();
+      running = true;
+      $('startText').textContent = 'Pausar';
+      $('startIcon').innerHTML = '<path d="M7 5h4v14H7zM15 5h4v14h-4z"/>';
+      setStatus('Preparando');
+      if (elapsedBeforeStart === 0 && nextPourIndex === 0) reproducirPitido(600, 1);
+      rafId = requestAnimationFrame(tick);
+    };
+    rafId = requestAnimationFrame(updateWait);
+  }
+
+  function resetTimer() {
+    running = false;
+    waiting = false;
+    if (waitTimeout !== null) window.clearTimeout(waitTimeout);
+    waitTimeout = null;
+    cancelAnimationFrame(rafId);
+    elapsedBeforeStart = 0;
+    startedAt = 0;
+    nextPourIndex = 0;
+    $('startPause').disabled = false;
+    $('startText').textContent = 'Iniciar';
+    $('startIcon').innerHTML = '<path d="M8 5v14l11-7z"/>';
+    $('resetTimer').disabled = true;
+    setStatus('Listo para comenzar');
+    updateDisplay();
+  }
+
+  const STORAGE_KEY = 'v60-46-settings-v1';
+  function loadSettings() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+      if (!saved) return;
+      if (['1','2'].includes(String(saved.cups))) $('cups').value = String(saved.cups);
+      if (['15','16','17','18'].includes(String(saved.ratio))) $('ratio').value = String(saved.ratio);
+      if (['balanced','sweet','bright'].includes(saved.profile)) $('profile').value = saved.profile;
+    } catch (e) { /* Ignora preferencias guardadas inválidas. */ }
+  }
+  function saveSettings() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        cups: $('cups').value,
+        ratio: $('ratio').value,
+        profile: $('profile').value
+      }));
+    } catch (e) { /* La receta sigue funcionando si el navegador bloquea localStorage. */ }
+  }
+  function settingsChanged() {
+    saveSettings();
+    resetTimer();
+    drawRecipe();
+  }
+
+  function openDrawer() {
+    $('drawer').classList.add('open');
+    $('scrim').classList.add('open');
+    $('drawer').setAttribute('aria-hidden','false');
+    $('openDrawer').setAttribute('aria-expanded','true');
+    $('closeDrawer').focus();
+  }
+  function closeDrawer() {
+    $('drawer').classList.remove('open');
+    $('scrim').classList.remove('open');
+    $('drawer').setAttribute('aria-hidden','true');
+    $('openDrawer').setAttribute('aria-expanded','false');
+    $('openDrawer').focus();
+  }
+  $('startPause').addEventListener('click', startPause);
+  $('resetTimer').addEventListener('click', resetTimer);
+  $('openDrawer').addEventListener('click', openDrawer);
+  $('closeDrawer').addEventListener('click', closeDrawer);
+  $('scrim').addEventListener('click', closeDrawer);
+  ['cups','ratio','profile'].forEach(id => $(id).addEventListener('change', settingsChanged));
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('drawer').classList.contains('open')) closeDrawer(); });
+  loadSettings();
+  drawRecipe();
+})();
+</script>
+</body>
+</html>
