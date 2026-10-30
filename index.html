@@ -33,6 +33,18 @@
     cursor:pointer; box-shadow:0 3px 12px #29292308;
   }
   .menu-button svg { width:23px; height:23px; }
+  .topbar-actions { display:flex; align-items:center; gap:8px; }
+  .wake-lock-button {
+    border:1px solid var(--line); background:var(--card); color:var(--muted);
+    width:46px; height:46px; border-radius:15px; display:grid; place-items:center;
+    cursor:pointer; box-shadow:0 3px 12px #29292308;
+    transition:background .18s ease, color .18s ease, border-color .18s ease;
+  }
+  .wake-lock-button svg { width:22px; height:22px; }
+  .wake-lock-button[aria-pressed="true"] {
+    background:var(--accent-light); color:var(--accent); border-color:var(--accent);
+  }
+  .wake-lock-button:focus-visible { outline:3px solid #38664f45; outline-offset:3px; }
   .timer-card {
     background:var(--card); border:1px solid var(--line); border-radius:28px;
     padding:clamp(22px,6vw,32px) 18px 22px; margin-top:18px;
@@ -134,9 +146,24 @@
 <div class="app">
   <div class="topbar">
     <div class="brand">V60 · Método 4:6</div>
-    <button class="menu-button" id="openDrawer" aria-label="Abrir receta y opciones" aria-controls="drawer" aria-expanded="false">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
-    </button>
+    <div class="topbar-actions">
+      <button class="wake-lock-button" id="wakeLockToggle" type="button" aria-label="Mantener pantalla encendida: desactivado" aria-pressed="false" title="Mantener pantalla encendida: desactivado">
+        <svg id="wakeLockIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="4" y="10" width="16" height="11" rx="2"/>
+          <path d="M8 10V7a4 4 0 0 1 8 0"/>
+          <path d="M12 14v3"/>
+        </svg>
+      </button>
+      <button class="wake-lock-button" id="soundToggle" type="button" aria-label="Sonido: desactivado" aria-pressed="false" title="Sonido: desactivado">
+        <svg id="soundToggleIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M11 5 6 9H3v6h3l5 4z"/>
+          <path d="m16 9 5 6"/><path d="m21 9-5 6"/>
+        </svg>
+      </button>
+      <button class="menu-button" id="openDrawer" aria-label="Abrir receta y opciones" aria-controls="drawer" aria-expanded="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      </button>
+    </div>
   </div>
 
   <section class="timer-card" aria-label="Cronómetro de preparación">
@@ -158,10 +185,6 @@
     <button class="control secondary" id="resetTimer" disabled>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 2.64-6.36L3 8"/><path d="M3 3v5h5"/></svg>
       <span>Reiniciar</span>
-    </button>
-    <button class="control secondary sound-button" id="enableSound" type="button" aria-label="Activar y probar sonido">
-      <span aria-hidden="true">♪</span>
-      <span id="soundButtonText">Activar sonido</span>
     </button>
   </div>
 
@@ -231,11 +254,81 @@
   let waiting = false;
   let waitUntil = 0;
   let waitTimeout = null;
+  let wakeLock = null;
+  let wakeLockEnabled = false;
+
+  function updateWakeLockButton() {
+    const button = $('wakeLockToggle');
+    const icon = $('wakeLockIcon');
+    const state = wakeLockEnabled ? 'activado' : 'desactivado';
+    button.setAttribute('aria-pressed', wakeLockEnabled ? 'true' : 'false');
+    button.setAttribute('aria-label', `Mantener pantalla encendida: ${state}`);
+    button.title = `Mantener pantalla encendida: ${state}`;
+    if (wakeLockEnabled) {
+      // Candado cerrado: la opción está activa.
+      icon.innerHTML = '<rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/><path d="M12 14v3"/>';
+    } else {
+      // Candado abierto: la opción está desactivada.
+      icon.innerHTML = '<rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 7.5-1.8"/><path d="M12 14v3"/>';
+    }
+  }
+
+  async function acquireWakeLock() {
+    if (!wakeLockEnabled || document.visibilityState !== 'visible') return;
+    if (!('wakeLock' in navigator)) {
+      wakeLockEnabled = false;
+      updateWakeLockButton();
+      setStatus('Wake Lock no compatible');
+      return;
+    }
+    try {
+      if (wakeLock && !wakeLock.released) return;
+      wakeLock = await navigator.wakeLock.request('screen');
+      wakeLock.addEventListener('release', () => {
+        wakeLock = null;
+        // Si el navegador libera el bloqueo al ocultar la pestaña, se volverá a solicitar al regresar.
+      });
+      setStatus('Pantalla siempre encendida');
+    } catch (error) {
+      wakeLock = null;
+      wakeLockEnabled = false;
+      updateWakeLockButton();
+      setStatus('No se pudo mantener la pantalla encendida');
+    }
+  }
+
+  async function toggleWakeLock() {
+    if (wakeLockEnabled) {
+      wakeLockEnabled = false;
+      if (wakeLock && !wakeLock.released) {
+        try { await wakeLock.release(); } catch (error) {}
+      }
+      wakeLock = null;
+      updateWakeLockButton();
+      setStatus('Pantalla siempre encendida desactivada');
+      return;
+    }
+    if (!('wakeLock' in navigator)) {
+      setStatus('Wake Lock no compatible con este navegador');
+      return;
+    }
+    wakeLockEnabled = true;
+    updateWakeLockButton();
+    await acquireWakeLock();
+  }
+
+  document.addEventListener('visibilitychange', () => {
+    if (wakeLockEnabled && document.visibilityState === 'visible') {
+      acquireWakeLock();
+    }
+  });
+
   let elapsedBeforeStart = 0;
   let startedAt = 0;
   let rafId = null;
   let nextPourIndex = 0;
   let audioCtx = null;
+  let soundEnabled = false;
 
   function buildRecipe() {
     const cups = Number($('cups').value);
@@ -282,6 +375,7 @@
   }
 
   function reproducirPitido(frecuencia = 600, duracion = 1) {
+    if (!soundEnabled) return;
     try {
       const AudioContextClass = window.AudioContext || window.webkitAudioContext;
       if (!AudioContextClass) return;
@@ -302,17 +396,18 @@
   }
 
   async function enableSound() {
-    const buttonText = $('soundButtonText');
     try {
       const AudioContextClass = window.AudioContext || window.webkitAudioContext;
       if (!AudioContextClass) {
-        buttonText.textContent = 'Sonido no compatible';
+        soundEnabled = false;
+        setStatus('Sonido no compatible');
+        updateSoundToggle();
         return;
       }
       if (!audioCtx || audioCtx.state === 'closed') audioCtx = new AudioContextClass();
       if (audioCtx.state !== 'running') await audioCtx.resume();
 
-      // Tono de prueba emitido después de reanudar el contexto dentro del toque del usuario.
+      // Tono breve de prueba al activar el sonido desde el botón.
       const oscillator = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
       oscillator.type = 'sine';
@@ -325,12 +420,37 @@
       oscillator.start();
       oscillator.stop(audioCtx.currentTime + 0.35);
       oscillator.onended = () => { oscillator.disconnect(); gain.disconnect(); };
-      buttonText.textContent = 'Sonido activado ✓';
+
+      soundEnabled = true;
       setStatus('Sonido activado');
     } catch (error) {
-      buttonText.textContent = 'Toca para reintentar';
+      soundEnabled = false;
       setStatus('No se pudo activar el sonido');
     }
+    updateSoundToggle();
+  }
+
+  function updateSoundToggle() {
+    const button = $('soundToggle');
+    const icon = $('soundToggleIcon');
+    button.setAttribute('aria-pressed', soundEnabled ? 'true' : 'false');
+    button.setAttribute('aria-label', `Sonido: ${soundEnabled ? 'activado' : 'desactivado'}`);
+    button.title = `Sonido: ${soundEnabled ? 'activado' : 'desactivado'}`;
+    if (soundEnabled) {
+      icon.innerHTML = '<path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15 9a5 5 0 0 1 0 6"/><path d="M18 6a9 9 0 0 1 0 12"/>';
+    } else {
+      icon.innerHTML = '<path d="M11 5 6 9H3v6h3l5 4z"/><path d="m16 9 5 6"/><path d="m21 9-5 6"/>';
+    }
+  }
+
+  async function toggleSound() {
+    if (soundEnabled) {
+      soundEnabled = false;
+      updateSoundToggle();
+      setStatus('Sonido desactivado');
+      return;
+    }
+    await enableSound();
   }
 
   function setStatus(text) { $('statusText').textContent = text; }
@@ -522,7 +642,10 @@
     syncTimeline();
   });
   $('cups').addEventListener('change', settingsChanged);
-  $('enableSound').addEventListener('click', enableSound);
+  $('soundToggle').addEventListener('click', toggleSound);
+  $('wakeLockToggle').addEventListener('click', toggleWakeLock);
+  updateWakeLockButton();
+  updateSoundToggle();
   $('startPause').addEventListener('click', startPause);
   $('resetTimer').addEventListener('click', resetTimer);
   $('openDrawer').addEventListener('click', openDrawer);
